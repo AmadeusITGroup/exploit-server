@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Request Information</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <style>
+        .item-right {
+            margin-left: auto;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div class="container mt-5">
+        <h1>Request Information</h1>
+        <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between" data-toggle="collapse"
+                data-target="#request-info">
+                <strong>
+                    <%= request.method %>
+                        <%= request.url %>
+                </strong> <span class="ml-auto"> Remote Address: <%= request.ip %></span><span class="item-right">
+                    <%= new Date().toLocaleString() %>
+                </span>
+            </div>
+            <div id="request-info" class="collapse">
+                <div class="card-body">
+                    <p><strong>Headers:</strong></p>
+                    <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-toggle="collapse"
+                        data-target="#headers-info" aria-expanded="false"
+                        aria-controls="headers-info">Show/Hide</button>
+                    <div id="headers-info" class="collapse">
+                        <ul class="list-group">
+                            <% for (const [key, value] of Object.entries(request.headers)) { %>
+                                <li class="list-group-item"><strong>
+                                        <%= key %>:
+                                    </strong>
+                                    <%= value %>
+                                </li>
+                                <% } %>
+                        </ul>
+                    </div>
+                    <% if (request.body) { %>
+                        <p><strong>Body:</strong></p>
+                        <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-toggle="collapse"
+                            data-target="#body-info" aria-expanded="false" aria-controls="body-info">Show/Hide</button>
+                        <div id="body-info" class="collapse">
+                            <pre><%= JSON.stringify(request.body, null, 2) %></pre>
+                        </div>
+                        <% } %>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+    <script>
+        $('.collapse').on('show.bs.collapse', function () {
+            $(this).prev('.card-header').find('.btn').addClass('active');
+        });
+
+        $('.collapse').on('hide.bs.collapse', function () {
+            $(this).prev('.card-header').find('.btn').removeClass('active');
+        });
+    </script>
+</body>
+
+</html>

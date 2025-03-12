@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Request Information</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <style>
+        .item-right {
+            margin-left: auto;
+        }
+
+        .unclicked {
+            color: red;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-md-6">
+                <h1>Request Information</h1>
+            </div>
+            <div class="col-md-6 d-flex justify-content-end align-items-center">
+                <button class="btn btn-warning mr-2" id="craft-btn">Craft Response</button>
+                <button class="btn btn-primary mr-2" id="pull-now-btn">Poll Now</button>
+                <button class="btn btn-danger" id="delete-logs-btn">Delete Logs</button>
+            </div>
+            <div>
+
+            </div>
+        </div>
+        <div class="form-group mx-sm-1 d-flex justify-content-end align-items-center mb-4">
+            <label for="inputPassword2" class="sr-only mr-2">Password</label>
+            <input type="password" class="form-control mr-2" id="inputPassword2" placeholder="Secret Key">
+            <button type="submit" class="btn btn-success" id="decrypt-log-btn">Decrypt Logs</button>
+        </div>
+        <div id="log-container"></div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('#delete-logs-btn').on('click', function () {
+                $.ajax({
+                    url: '/logs',
+                    type: 'DELETE',
+                    success: function () {
+                        // Reload the page to update the log container
+                        location.reload();
+                    },
+                    error: function () {
+                    }
+                });
+            });
+        });
+    </script>
+    <script>
+        function printOneLog(log) {
+            var id = log.now;
+            var headerState = '';
+            var headersState = '';
+            var bodyState = '';
+
+            var logHtml = '';
+
+            logHtml += '<div class="card mb-3">'
+                + '<div class="card-header d-flex align-items-center justify-content-between ' + headerState + '" data-toggle="collapse" data-target="#request-info-' + id + '">'
+                + '<strong>' + log.request.method + ' ' + log.request.url + '</strong> <span class="ml-auto"> Remote Address: ' + log.request.ip + '</span><span class="item-right">' + new Date(log.now).toLocaleString() + '</span>'
+                + '</div>'
+                + '<div id="request-info-' + id + '" class="collapse ' + headerState + '">'
+                + '<div class="card-body">'
+                + '<p><strong>Headers:</strong></p>'
+                + '<button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-toggle="collapse" data-target="#headers-info-' + id + '" aria-expanded="' + headersState + '" aria-controls="headers-info-' + id + '">Show/Hide</button>'
+                + '<div id="headers-info-' + id + '" class="collapse ' + headersState + '">'
+                + '<ul class="list-group">';
+            for (var key in log.request.headers) {
+                logHtml += '<li class="list-group-item"><strong>' + key + ':</strong> ' + log.request.headers[key] + '</li>';
+            }
+            logHtml += '</ul></div>';
+            if (log.request.body) {
+                logHtml += '<p><strong>Body:</strong></p>'
+                    + '<button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-toggle="collapse" data-target="#body-info-' + id + '" aria-expanded="' + bodyState + '" aria-controls="body-info-' + id + '">Show/Hide</button>'
+                    + '<div id="body-info-' + id + '" class="collapse ' + bodyState + '">'
+                    + '<ul class="list-group"><li class="list-group-item">' + log.request.body + '</li></ul>'
+                    + '</div>';
+            }
+            logHtml += '</div></div></div>';
+
+            document.getElementById('log-container').insertAdjacentHTML('afterbegin', logHtml);
+        };
+    </script>
+    <script>
+
+        function printDecryptionFailed(log) {
+            var id = log.now;
+            var headerState = '';
+            var headersState = '';
+            var bodyState = '';
+
+            var logHtml = '';
+
+            logHtml += '<div class="card mb-3 bg-danger text-white"><div class="card-header d-flex align-items-center justify-content-between collapsed" data-toggle="collapse" data-target="#request-info-' + id + '" aria-expanded="false"><strong>DECRYPTION FAILED</strong> <span class="item-right">' + id + '</span></div></div>'
+            document.getElementById('log-container').insertAdjacentHTML('afterbegin', logHtml);
+        };
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.2/rollups/aes.js"></script>
+    <script>
+        function decrypt_json(base64_ciphered, secret) {
+            var decrypted = CryptoJS.AES.decrypt(base64_ciphered, secret);
+            return decrypted.toString(CryptoJS.enc.Utf8);
+        }
+    </script>
+    <script type="module">
+        import {io} from "https://cdn.socket.io/4.4.1/socket.io.esm.min.js";
+
+
+        const socket = io();
+        socket.on('newLog', (jsonResp) => {
+            try {
+                var secret_key = document.getElementById('inputPassword2').value;
+                var decryptedreq = decrypt_json(jsonResp.request, secret_key);
+                var decryptedLog = {now: jsonResp.now, request: JSON.parse(decryptedreq)};
+                printOneLog(decryptedLog);
+            } catch {
+                printDecryptionFailed(jsonResp);
+            }
+
+        });
+
+        socket.on('logDeleted', () => {
+            document.getElementById("log-container").innerHTML = "";
+        })
+
+        function fetch_andprint() {
+            fetch("/api/logs")
+                .then(response => response.json())
+                .then(jsonResponse => {
+                    for (let i = 0; i < jsonResponse.length; i++) {
+                        try {
+                            var decryptedreq = decrypt_json(jsonResponse[i].request, document.getElementById('inputPassword2').value);
+                            var decryptedLog = {now: jsonResponse[i].now, request: JSON.parse(decryptedreq)};
+                            printOneLog(decryptedLog);
+                        } catch {
+                            printDecryptionFailed(jsonResponse[i]);
+                        }
+
+                    };
+                });
+        }
+        $('#decrypt-log-btn').on('click', function () {
+            var secret_key = document.getElementById('inputPassword2').value;
+            document.getElementById("log-container").innerHTML = "";
+            fetch_andprint();
+        });
+
+        $('#craft-btn').on('click', function () {
+            window.open('/craft');
+        });
+        fetch_andprint();
+
+
+    </script>
+
+
+</body>
+
+</html>

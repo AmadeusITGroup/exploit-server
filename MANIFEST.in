@@ -1,3 +1,0 @@
-# Add files to be included/excluded in the source distribution
-#include /path/to/file
-#recursive-include directory *.csv
